@@ -1,0 +1,12 @@
+operation,median_ms,p95_ms,max_ms,samples
+GET /health,0.207931,0.247602,0.247602,7
+GET /api/v1/tasks/{id},0.246162,0.294032,0.294032,7
+GET /api/v1/tasks,5.768121,6.022233,6.022233,7
+GET /api/v1/tasks?list=in,8.237049,8.900974,8.900974,7
+GET /api/v1/tasks?state=pending,5.793312,7.416053,7.416053,7
+GET /api/v1/tasks?labels=...,6.096133,6.361776,6.361776,7
+GET /api/v1/tasks?list+state+labels,8.176219,8.36794,8.36794,7
+POST /api/v1/tasks,0.420403,0.556724,0.556724,7
+PUT /api/v1/tasks/{id},0.446523,0.507404,0.507404,7
+GET watch replay 1 event,0.316932,0.398042,0.398042,7
+GET watch replay 256 events,1.651342,1.721542,1.721542,7

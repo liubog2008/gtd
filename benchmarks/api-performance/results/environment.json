@@ -1,0 +1,12 @@
+{
+  "date": "2026-09-01",
+  "platform": "Linux-4.4.0-x86_64-with-glibc2.43",
+  "python": "3.14.4",
+  "sqlite": "3.46.1",
+  "tasks": 1024,
+  "versions_per_task": 101,
+  "seed_events": 103424,
+  "samples": 7,
+  "threshold_ms": 1000.0,
+  "server_binary": "/home/agent/workspace/event-source/target/release/gtd"
+}

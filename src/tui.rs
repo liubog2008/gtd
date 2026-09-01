@@ -1,7 +1,6 @@
 use std::{io, time::Duration as StdDuration};
 
-use anyhow::{Context, Result, bail};
-use chrono::{Duration, Utc};
+use anyhow::{Context, Result};
 use crossterm::{
     event::{self, Event as CrosstermEvent, KeyCode, KeyEventKind},
     execute,
@@ -16,34 +15,39 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
 };
 use unicode_width::UnicodeWidthStr;
+use uuid::Uuid;
 
 use crate::{
     client::{ApiClient, labels_from_pairs},
-    domain::{ContextPatch, Task, TaskAction, TaskFilter, TaskList, TaskState, TransitionRequest},
+    domain::{Task, TaskEdit, TaskFilter, TaskList, TaskState},
 };
 
 type GtdTerminal = Terminal<CrosstermBackend<io::Stdout>>;
 
-pub fn pick_task(client: &ApiClient) -> Result<Option<i32>> {
-    let tasks = client.list(&TaskFilter {
-        list: Some(TaskList::NextAction),
-        state: Some(TaskState::Pending),
-        ..TaskFilter::default()
-    })?;
+pub fn pick_task(client: &ApiClient) -> Result<Option<Uuid>> {
+    let tasks = client
+        .list(&TaskFilter {
+            list: Some(TaskList::NextAction),
+            state: Some(TaskState::Pending),
+            ..TaskFilter::default()
+        })?
+        .items;
     if tasks.is_empty() {
         return Ok(None);
     }
     let mut terminal = TerminalSession::new()?;
     select_task(&mut terminal.terminal, "Pick a next action", &tasks)
-        .map(|selection| selection.map(|index| tasks[index].id))
+        .map(|selection| selection.map(|index| tasks[index].metadata.id))
 }
 
 pub fn process_inbox(client: &ApiClient) -> Result<usize> {
-    let tasks = client.list(&TaskFilter {
-        list: Some(TaskList::Inbox),
-        state: Some(TaskState::Pending),
-        ..TaskFilter::default()
-    })?;
+    let tasks = client
+        .list(&TaskFilter {
+            list: Some(TaskList::Inbox),
+            state: Some(TaskState::Pending),
+            ..TaskFilter::default()
+        })?
+        .items;
     if tasks.is_empty() {
         return Ok(0);
     }
@@ -77,15 +81,19 @@ pub fn process_inbox(client: &ApiClient) -> Result<usize> {
 }
 
 pub fn review(client: &ApiClient) -> Result<usize> {
-    let next_actions = client.list(&TaskFilter {
-        list: Some(TaskList::NextAction),
-        ..TaskFilter::default()
-    })?;
-    let someday = client.list(&TaskFilter {
-        list: Some(TaskList::SomedayMaybe),
-        state: Some(TaskState::Pending),
-        ..TaskFilter::default()
-    })?;
+    let next_actions = client
+        .list(&TaskFilter {
+            list: Some(TaskList::NextAction),
+            ..TaskFilter::default()
+        })?
+        .items;
+    let someday = client
+        .list(&TaskFilter {
+            list: Some(TaskList::SomedayMaybe),
+            state: Some(TaskState::Pending),
+            ..TaskFilter::default()
+        })?
+        .items;
     if next_actions.is_empty() && someday.is_empty() {
         return Ok(0);
     }
@@ -112,18 +120,20 @@ pub fn review(client: &ApiClient) -> Result<usize> {
         match choice {
             'k' => {}
             'm' => {
-                let revisit_at = ask_revisit_at(&mut terminal.terminal, &title, task, false)?;
-                client.transition(
-                    task.id,
-                    TaskAction::Maybe,
-                    TransitionRequest {
-                        revisit_at,
-                        ..TransitionRequest::default()
-                    },
+                client.update_state(
+                    task.metadata.id,
+                    TaskList::SomedayMaybe,
+                    TaskState::Pending,
+                    TaskEdit::default(),
                 )?;
             }
             'x' => {
-                client.transition(task.id, TaskAction::Trash, TransitionRequest::default())?;
+                client.update_state(
+                    task.metadata.id,
+                    TaskList::Archive,
+                    TaskState::Trash,
+                    TaskEdit::default(),
+                )?;
             }
             _ => unreachable!(),
         }
@@ -150,10 +160,20 @@ pub fn review(client: &ApiClient) -> Result<usize> {
         match choice {
             'k' => {}
             'a' => {
-                client.transition(task.id, TaskAction::Activate, TransitionRequest::default())?;
+                client.update_state(
+                    task.metadata.id,
+                    TaskList::NextAction,
+                    TaskState::Pending,
+                    TaskEdit::default(),
+                )?;
             }
             'x' => {
-                client.transition(task.id, TaskAction::Trash, TransitionRequest::default())?;
+                client.update_state(
+                    task.metadata.id,
+                    TaskList::Archive,
+                    TaskState::Trash,
+                    TaskEdit::default(),
+                )?;
             }
             _ => unreachable!(),
         }
@@ -186,7 +206,12 @@ fn process_actionable(
 
     match choice {
         'd' => {
-            client.transition(task.id, TaskAction::Start, TransitionRequest::default())?;
+            client.update_state(
+                task.metadata.id,
+                TaskList::Inbox,
+                TaskState::Doing,
+                TaskEdit::default(),
+            )?;
             let Some(outcome) = choose(
                 terminal,
                 title,
@@ -199,37 +224,33 @@ fn process_actionable(
             };
             match outcome {
                 'd' => {
-                    let context = edit_context(terminal, title, task)?;
-                    client.transition(
-                        task.id,
-                        TaskAction::Done,
-                        TransitionRequest {
-                            context,
-                            revisit_at: None,
-                        },
+                    let edit = edit_task(terminal, title, task)?;
+                    client.update_state(
+                        task.metadata.id,
+                        TaskList::Archive,
+                        TaskState::Done,
+                        edit,
                     )?;
                 }
                 'x' => {
-                    client.transition(task.id, TaskAction::Trash, TransitionRequest::default())?;
+                    client.update_state(
+                        task.metadata.id,
+                        TaskList::Archive,
+                        TaskState::Trash,
+                        TaskEdit::default(),
+                    )?;
                 }
                 _ => unreachable!(),
             }
         }
         'f' | 'g' => {
-            let context = edit_context(terminal, title, task)?;
-            let action = if choice == 'f' {
-                TaskAction::Defer
+            let edit = edit_task(terminal, title, task)?;
+            let list = if choice == 'f' {
+                TaskList::NextAction
             } else {
-                TaskAction::Delegate
+                TaskList::WaitingFor
             };
-            client.transition(
-                task.id,
-                action,
-                TransitionRequest {
-                    context,
-                    revisit_at: None,
-                },
-            )?;
+            client.update_state(task.metadata.id, list, TaskState::Pending, edit)?;
         }
         _ => unreachable!(),
     }
@@ -254,17 +275,19 @@ fn process_non_actionable(
     };
     match choice {
         'x' => {
-            client.transition(task.id, TaskAction::Trash, TransitionRequest::default())?;
+            client.update_state(
+                task.metadata.id,
+                TaskList::Archive,
+                TaskState::Trash,
+                TaskEdit::default(),
+            )?;
         }
         'm' => {
-            let revisit_at = ask_revisit_at(terminal, title, task, true)?;
-            client.transition(
-                task.id,
-                TaskAction::Maybe,
-                TransitionRequest {
-                    revisit_at,
-                    ..TransitionRequest::default()
-                },
+            client.update_state(
+                task.metadata.id,
+                TaskList::SomedayMaybe,
+                TaskState::Pending,
+                TaskEdit::default(),
             )?;
         }
         _ => unreachable!(),
@@ -272,7 +295,7 @@ fn process_non_actionable(
     Ok(true)
 }
 
-fn edit_context(terminal: &mut GtdTerminal, title: &str, task: &Task) -> Result<ContextPatch> {
+fn edit_task(terminal: &mut GtdTerminal, title: &str, task: &Task) -> Result<TaskEdit> {
     let labels = input(
         terminal,
         title,
@@ -287,61 +310,12 @@ fn edit_context(terminal: &mut GtdTerminal, title: &str, task: &Task) -> Result<
         .map(str::to_owned)
         .collect::<Vec<_>>();
     let labels = labels_from_pairs(&pairs)?;
-    let note = input(terminal, title, task, "Context note (blank is fine)")?
+    let description = input(terminal, title, task, "Description (blank keeps current)")?
         .filter(|value| !value.trim().is_empty());
-    Ok(ContextPatch { labels, note })
-}
-
-fn ask_revisit_at(
-    terminal: &mut GtdTerminal,
-    title: &str,
-    task: &Task,
-    required: bool,
-) -> Result<Option<chrono::DateTime<Utc>>> {
-    loop {
-        let prompt = if required {
-            "When should it return to inbox? Examples: 30m, 2h, 7d, 4w"
-        } else {
-            "Optional return delay (30m, 2h, 7d, 4w); leave blank for someday"
-        };
-        let Some(raw) = input(terminal, title, task, prompt)? else {
-            if required {
-                continue;
-            }
-            return Ok(None);
-        };
-        if raw.trim().is_empty() && !required {
-            return Ok(None);
-        }
-        match parse_delay(&raw) {
-            Ok(delay) => return Ok(Some(Utc::now() + delay)),
-            Err(error) => {
-                show_message(terminal, title, task, &error.to_string())?;
-            }
-        }
-    }
-}
-
-pub fn parse_delay(value: &str) -> Result<Duration> {
-    let value = value.trim();
-    if value.len() < 2 {
-        bail!("delay must look like 30m, 2h, 7d, or 4w");
-    }
-    let (amount, unit) = value.split_at(value.len() - 1);
-    let amount: i64 = amount
-        .parse()
-        .with_context(|| format!("invalid delay '{value}'"))?;
-    if amount <= 0 {
-        bail!("delay must be greater than zero");
-    }
-    let delay = match unit {
-        "m" => Duration::try_minutes(amount),
-        "h" => Duration::try_hours(amount),
-        "d" => Duration::try_days(amount),
-        "w" => Duration::try_weeks(amount),
-        _ => bail!("unknown delay unit '{unit}'; use m, h, d, or w"),
-    };
-    delay.context("delay is too large")
+    Ok(TaskEdit {
+        labels,
+        description,
+    })
 }
 
 struct TerminalSession {
@@ -435,7 +409,7 @@ fn select_task(terminal: &mut GtdTerminal, title: &str, tasks: &[Task]) -> Resul
             let area = frame.area();
             let items = tasks
                 .iter()
-                .map(|task| ListItem::new(format!("#{:<4} {}", task.id, task.description)))
+                .map(|task| ListItem::new(format!("#{:<4} {}", task.metadata.id, task.description)))
                 .collect::<Vec<_>>();
             let list = List::new(items)
                 .block(Block::default().title(title).borders(Borders::ALL))
@@ -540,60 +514,11 @@ fn render_input(frame: &mut Frame, title: &str, task: &Task, prompt: &str, value
 fn task_widget<'a>(title: &'a str, task: &'a Task) -> Paragraph<'a> {
     Paragraph::new(vec![
         Line::from(Span::styled(
-            format!("#{}  {}", task.id, task.description),
+            format!("#{}  {}", task.metadata.id, task.description),
             Style::default().add_modifier(Modifier::BOLD),
         )),
         Line::from(format!("{} / {}", task.list, task.state)),
     ])
     .block(Block::default().title(title).borders(Borders::ALL))
     .wrap(Wrap { trim: true })
-}
-
-fn show_message(terminal: &mut GtdTerminal, title: &str, task: &Task, message: &str) -> Result<()> {
-    loop {
-        terminal.draw(|frame| {
-            let areas = Layout::vertical([
-                Constraint::Length(5),
-                Constraint::Min(3),
-                Constraint::Length(1),
-            ])
-            .split(frame.area());
-            frame.render_widget(task_widget(title, task), areas[0]);
-            frame.render_widget(
-                Paragraph::new(message)
-                    .style(Style::default().fg(Color::Red))
-                    .block(
-                        Block::default()
-                            .title("Invalid input")
-                            .borders(Borders::ALL),
-                    ),
-                areas[1],
-            );
-            frame.render_widget(Paragraph::new("Press any key to try again"), areas[2]);
-        })?;
-        if let CrosstermEvent::Key(key) = event::read()?
-            && key.kind == KeyEventKind::Press
-        {
-            return Ok(());
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parses_supported_delays() {
-        assert_eq!(parse_delay("30m").unwrap(), Duration::minutes(30));
-        assert_eq!(parse_delay("2h").unwrap(), Duration::hours(2));
-        assert_eq!(parse_delay("7d").unwrap(), Duration::days(7));
-        assert_eq!(parse_delay("4w").unwrap(), Duration::weeks(4));
-    }
-
-    #[test]
-    fn rejects_non_positive_or_unknown_delays() {
-        assert!(parse_delay("0d").is_err());
-        assert!(parse_delay("2months").is_err());
-    }
 }

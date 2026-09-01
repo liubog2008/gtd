@@ -3,8 +3,14 @@ use std::{collections::BTreeMap, time::Duration};
 use anyhow::{Context, Result, bail};
 use reqwest::blocking::{Client, Response};
 use serde::{Deserialize, de::DeserializeOwned};
+use uuid::Uuid;
 
-use crate::domain::{CreateTaskRequest, Task, TaskAction, TaskFilter, TransitionRequest};
+use crate::domain::{
+    CreateTaskRequest, Task, TaskEdit, TaskFilter, TaskList, TaskListResponse, TaskState,
+    UpdateTaskMetadata, UpdateTaskRequest,
+};
+
+const API_V1: &str = "/api/v1";
 
 #[derive(Clone)]
 pub struct ApiClient {
@@ -29,23 +35,23 @@ impl ApiClient {
     pub fn create(&self, description: String) -> Result<Task> {
         let response = self
             .client
-            .post(format!("{}/api/tasks", self.base_url))
+            .post(format!("{}{API_V1}/tasks", self.base_url))
             .json(&CreateTaskRequest { description })
             .send()
             .context("could not reach the GTD server")?;
         decode(response)
     }
 
-    pub fn get(&self, id: i32) -> Result<Task> {
+    pub fn get(&self, id: Uuid) -> Result<Task> {
         let response = self
             .client
-            .get(format!("{}/api/tasks/{id}", self.base_url))
+            .get(format!("{}{API_V1}/tasks/{id}", self.base_url))
             .send()
             .context("could not reach the GTD server")?;
         decode(response)
     }
 
-    pub fn list(&self, filter: &TaskFilter) -> Result<Vec<Task>> {
+    pub fn list(&self, filter: &TaskFilter) -> Result<TaskListResponse> {
         let mut query = Vec::new();
         if let Some(list) = filter.list {
             query.push(("list".to_owned(), list.to_string()));
@@ -64,30 +70,53 @@ impl ApiClient {
         }
         let response = self
             .client
-            .get(format!("{}/api/tasks", self.base_url))
+            .get(format!("{}{API_V1}/tasks", self.base_url))
             .query(&query)
             .send()
             .context("could not reach the GTD server")?;
         decode(response)
     }
 
-    pub fn transition(
+    pub fn update_state(
         &self,
-        id: i32,
-        action: TaskAction,
-        request: TransitionRequest,
+        id: Uuid,
+        list: TaskList,
+        state: TaskState,
+        edit: TaskEdit,
     ) -> Result<Task> {
+        let current = self.get(id)?;
+        let mut labels = current.labels;
+        for (key, value) in edit.labels {
+            labels.insert(key, value);
+        }
+        let description = edit.description.unwrap_or(current.description);
+
+        self.update(
+            id,
+            UpdateTaskRequest {
+                metadata: UpdateTaskMetadata {
+                    revision: current.metadata.revision,
+                },
+                description,
+                list,
+                state,
+                labels,
+            },
+        )
+    }
+
+    pub fn update(&self, id: Uuid, request: UpdateTaskRequest) -> Result<Task> {
         let response = self
             .client
-            .post(format!("{}/api/tasks/{id}/actions/{action}", self.base_url))
+            .put(format!("{}{API_V1}/tasks/{id}", self.base_url))
             .json(&request)
             .send()
             .context("could not reach the GTD server")?;
         decode(response)
     }
 
-    pub fn events_url(&self) -> String {
-        format!("{}/api/events", self.base_url)
+    pub fn watch_url(&self) -> String {
+        format!("{}{API_V1}/tasks?watch=true", self.base_url)
     }
 }
 
