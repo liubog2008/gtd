@@ -1,0 +1,31 @@
+{
+  "generated_at_utc": "2026-09-01T15:09:58Z",
+  "elapsed_seconds": 306.4208433628082,
+  "python_version": "3.14.4",
+  "sqlite_version": "3.46.1",
+  "platform": "Linux-4.4.0-x86_64-with-glibc2.43",
+  "cpu_model": "unknown",
+  "logical_cpu_count": 16,
+  "tasks": [
+    1,
+    10,
+    100,
+    1000,
+    10000
+  ],
+  "versions": [
+    1,
+    10,
+    100,
+    1000
+  ],
+  "samples": 7,
+  "target_sample_seconds": 0.1,
+  "database_lifecycle": "one temporary database per N; incrementally grown through V; deleted at exit",
+  "cache_mode": "warm SQLite/OS cache; SQLite default cache_size and temp_store",
+  "build_pragmas": {
+    "journal_mode": "OFF",
+    "synchronous": "OFF",
+    "locking_mode": "EXCLUSIVE"
+  }
+}

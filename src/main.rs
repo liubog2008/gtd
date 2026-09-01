@@ -8,9 +8,11 @@ use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
 use gtd::{
     client::{ApiClient, labels_from_pairs},
-    domain::{ContextPatch, Task, TaskAction, TaskFilter, TaskList, TaskState, TransitionRequest},
+    domain::{Task, TaskEdit, TaskFilter, TaskList, TaskState},
+    repository::{SqliteRepository, TaskRepository},
     server, tui,
 };
+use uuid::Uuid;
 
 #[derive(Debug, Parser)]
 #[command(name = "gtd", version, about = "A pragmatic GTD task manager")]
@@ -37,6 +39,12 @@ enum Command {
         #[arg(long, env = "GTD_DATABASE", default_value = "gtd.db")]
         database: PathBuf,
     },
+    /// Compact local task event history through the given revision.
+    Compact {
+        revision: i64,
+        #[arg(long, env = "GTD_DATABASE", default_value = "gtd.db")]
+        database: PathBuf,
+    },
     /// Capture a short description in the in list.
     Add {
         #[arg(required = true, num_args = 1.., trailing_var_arg = true)]
@@ -45,17 +53,17 @@ enum Command {
     /// Select a pending next action and mark it doing.
     Pick {
         /// Task ID. Omit it to choose interactively.
-        id: Option<i32>,
+        id: Option<Uuid>,
     },
     /// Mark a doing task done and move it to archive.
     Done {
-        id: i32,
-        /// Context label in key:value form. May be repeated.
+        id: Uuid,
+        /// Label in key:value form. May be repeated.
         #[arg(short, long = "label")]
         labels: Vec<String>,
-        /// Optional context note to add.
+        /// Replace the task description while completing it.
         #[arg(long)]
-        note: Option<String>,
+        description: Option<String>,
     },
     /// List tasks in one GTD list.
     List {
@@ -91,6 +99,23 @@ fn main() -> Result<()> {
                 .context("failed to create Tokio runtime")?
                 .block_on(server::run(bind, &database))
         }
+        Command::Compact { revision, database } => {
+            let database = database
+                .to_str()
+                .context("database path is not valid UTF-8")?;
+            let repository = SqliteRepository::new(database)
+                .with_context(|| format!("failed to open SQLite database '{database}'"))?;
+            let state = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .context("failed to create Tokio runtime")?
+                .block_on(repository.compact(revision))?;
+            println!(
+                "compacted task events: scheduled={}, finished={}, current={}",
+                state.scheduled_revision, state.finished_revision, state.current_revision
+            );
+            Ok(())
+        }
         command => run_client_command(&cli.server_url, command),
     }
 }
@@ -102,7 +127,7 @@ fn run_client_command(server_url: &str, command: Command) -> Result<()> {
             let task = client.create(description.join(" "))?;
             println!(
                 "captured #{} in {}: {}",
-                task.id, task.list, task.description
+                task.metadata.id, task.list, task.description
             );
         }
         Command::Pick { id } => {
@@ -116,18 +141,20 @@ fn run_client_command(server_url: &str, command: Command) -> Result<()> {
                     id
                 }
                 None => {
-                    let tasks = client.list(&TaskFilter {
-                        list: Some(TaskList::NextAction),
-                        state: Some(TaskState::Pending),
-                        ..TaskFilter::default()
-                    })?;
+                    let tasks = client
+                        .list(&TaskFilter {
+                            list: Some(TaskList::NextAction),
+                            state: Some(TaskState::Pending),
+                            ..TaskFilter::default()
+                        })?
+                        .items;
                     if tasks.is_empty() {
                         println!("no pending task in next-action");
                         return Ok(());
                     }
                     let ids = tasks
                         .iter()
-                        .map(|task| task.id.to_string())
+                        .map(|task| task.metadata.id.to_string())
                         .collect::<Vec<_>>()
                         .join(", ");
                     bail!(
@@ -135,22 +162,32 @@ fn run_client_command(server_url: &str, command: Command) -> Result<()> {
                     );
                 }
             };
-            let task = client.transition(id, TaskAction::Pick, TransitionRequest::default())?;
-            println!("doing #{}: {}", task.id, task.description);
-        }
-        Command::Done { id, labels, note } => {
-            let task = client.transition(
+            let task = client.update_state(
                 id,
-                TaskAction::Done,
-                TransitionRequest {
-                    context: ContextPatch {
-                        labels: labels_from_pairs(&labels)?,
-                        note,
-                    },
-                    revisit_at: None,
+                TaskList::NextAction,
+                TaskState::Doing,
+                TaskEdit::default(),
+            )?;
+            println!("doing #{}: {}", task.metadata.id, task.description);
+        }
+        Command::Done {
+            id,
+            labels,
+            description,
+        } => {
+            let task = client.update_state(
+                id,
+                TaskList::Archive,
+                TaskState::Done,
+                TaskEdit {
+                    labels: labels_from_pairs(&labels)?,
+                    description,
                 },
             )?;
-            println!("archived #{} as done: {}", task.id, task.description);
+            println!(
+                "archived #{} as done: {}",
+                task.metadata.id, task.description
+            );
         }
         Command::List {
             list,
@@ -158,11 +195,13 @@ fn run_client_command(server_url: &str, command: Command) -> Result<()> {
             state,
             json,
         } => {
-            let tasks = client.list(&TaskFilter {
-                list: Some(list),
-                state,
-                labels: labels_from_pairs(&labels)?,
-            })?;
+            let tasks = client
+                .list(&TaskFilter {
+                    list: Some(list),
+                    state,
+                    labels: labels_from_pairs(&labels)?,
+                })?
+                .items;
             if json {
                 println!("{}", serde_json::to_string_pretty(&tasks)?);
             } else {
@@ -179,7 +218,7 @@ fn run_client_command(server_url: &str, command: Command) -> Result<()> {
             let count = tui::review(&client)?;
             println!("reviewed {count} task(s)");
         }
-        Command::Server { .. } => unreachable!(),
+        Command::Server { .. } | Command::Compact { .. } => unreachable!(),
     }
     Ok(())
 }
@@ -198,25 +237,19 @@ fn print_tasks(tasks: &[Task]) {
     }
     for task in tasks {
         let labels = task
-            .context
             .labels
             .iter()
             .map(|(key, value)| format!("{key}:{value}"))
             .collect::<Vec<_>>()
             .join(",");
-        let context = match (&task.context.note, labels.is_empty()) {
-            (None, true) => String::new(),
-            (Some(note), true) => format!(" · {note}"),
-            (None, false) => format!(" · [{labels}]"),
-            (Some(note), false) => format!(" · [{labels}] {note}"),
+        let labels = if labels.is_empty() {
+            String::new()
+        } else {
+            format!(" · [{labels}]")
         };
-        let revisit = task
-            .revisit_at
-            .map(|date| format!(" · returns {}", date.to_rfc3339()))
-            .unwrap_or_default();
         println!(
-            "#{:<4} {:<7} {}{}{}",
-            task.id, task.state, task.description, context, revisit
+            "#{} {:<7} {}{}",
+            task.metadata.id, task.state, task.description, labels
         );
     }
 }

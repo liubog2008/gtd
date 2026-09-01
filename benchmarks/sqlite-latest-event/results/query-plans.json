@@ -1,0 +1,503 @@
+{
+  "N=1,V=1": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SCAN task_events USING COVERING INDEX task_events_task_revision_idx",
+      "14 | 3 | 0 | USE TEMP B-TREE FOR GROUP BY",
+      "59 | 0 | 0 | SCAN latest",
+      "61 | 0 | 0 | SCAN event USING INDEX task_events_list_task_revision_idx",
+      "85 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "99 | 0 | 0 | SCAN latest",
+      "103 | 0 | 0 | SCAN event USING INDEX task_events_task_revision_idx",
+      "127 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=1,V=10": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SCAN task_events USING COVERING INDEX task_events_task_revision_idx",
+      "49 | 0 | 0 | SCAN latest",
+      "51 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "71 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=1,V=100": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx (ANY(task_id) AND revision<?)",
+      "57 | 0 | 0 | SCAN latest",
+      "59 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "79 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=1,V=1000": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx (ANY(task_id) AND revision<?)",
+      "57 | 0 | 0 | SCAN latest",
+      "59 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "79 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=10,V=1": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SCAN task_events USING COVERING INDEX task_events_task_revision_idx",
+      "49 | 0 | 0 | SCAN latest",
+      "51 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "71 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=10,V=10": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SCAN task_events USING COVERING INDEX task_events_task_revision_idx",
+      "49 | 0 | 0 | SCAN latest",
+      "51 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "71 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=10,V=100": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx (ANY(task_id) AND revision<?)",
+      "57 | 0 | 0 | SCAN latest",
+      "59 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "79 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=10,V=1000": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx (ANY(task_id) AND revision<?)",
+      "57 | 0 | 0 | SCAN latest",
+      "59 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "79 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=100,V=1": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SCAN task_events USING COVERING INDEX task_events_task_revision_idx",
+      "49 | 0 | 0 | SCAN latest",
+      "51 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "71 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=100,V=10": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SCAN task_events USING COVERING INDEX task_events_task_revision_idx",
+      "49 | 0 | 0 | SCAN latest",
+      "51 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "71 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=100,V=100": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx (ANY(task_id) AND revision<?)",
+      "57 | 0 | 0 | SCAN latest",
+      "59 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "79 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=100,V=1000": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx (ANY(task_id) AND revision<?)",
+      "57 | 0 | 0 | SCAN latest",
+      "59 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "79 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=1000,V=1": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SCAN task_events USING COVERING INDEX task_events_task_revision_idx",
+      "49 | 0 | 0 | SCAN latest",
+      "51 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "71 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=1000,V=10": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SCAN task_events USING COVERING INDEX task_events_task_revision_idx",
+      "49 | 0 | 0 | SCAN latest",
+      "51 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "71 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=1000,V=100": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx (ANY(task_id) AND revision<?)",
+      "57 | 0 | 0 | SCAN latest",
+      "59 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "79 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=1000,V=1000": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx (ANY(task_id) AND revision<?)",
+      "57 | 0 | 0 | SCAN latest",
+      "59 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "79 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=10000,V=1": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SCAN task_events USING COVERING INDEX task_events_task_revision_idx",
+      "49 | 0 | 0 | SCAN latest",
+      "51 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "71 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=10000,V=10": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SCAN task_events USING COVERING INDEX task_events_task_revision_idx",
+      "49 | 0 | 0 | SCAN latest",
+      "51 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "71 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=10000,V=100": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx (ANY(task_id) AND revision<?)",
+      "57 | 0 | 0 | SCAN latest",
+      "59 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "79 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  },
+  "N=10000,V=1000": {
+    "group_max": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "10 | 3 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx (ANY(task_id) AND revision<?)",
+      "57 | 0 | 0 | SCAN latest",
+      "59 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "79 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ],
+    "loose_scan": [
+      "3 | 0 | 0 | MATERIALIZE latest_revisions",
+      "5 | 3 | 0 | CO-ROUTINE task_ids",
+      "8 | 5 | 0 | SETUP",
+      "11 | 8 | 0 | SEARCH task_events USING COVERING INDEX task_events_task_revision_idx",
+      "29 | 5 | 0 | RECURSIVE STEP",
+      "30 | 29 | 0 | SCAN task_ids",
+      "34 | 29 | 0 | CORRELATED SCALAR SUBQUERY 2",
+      "39 | 34 | 0 | SEARCH next USING COVERING INDEX task_events_task_revision_idx (task_id>?)",
+      "60 | 3 | 0 | SCAN ids",
+      "67 | 3 | 0 | CORRELATED SCALAR SUBQUERY 4",
+      "76 | 67 | 0 | SEARCH event USING COVERING INDEX task_events_task_revision_idx (task_id=? AND revision<?)",
+      "98 | 0 | 0 | SCAN latest",
+      "102 | 0 | 0 | SEARCH event USING INTEGER PRIMARY KEY (rowid=?)",
+      "122 | 0 | 0 | USE TEMP B-TREE FOR ORDER BY"
+    ]
+  }
+}

@@ -1,3 +1,2 @@
-DROP TABLE IF EXISTS labels;
-DROP TABLE IF EXISTS tasks;
-
+DROP TABLE IF EXISTS task_event_compaction;
+DROP TABLE IF EXISTS task_events;
