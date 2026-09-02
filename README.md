@@ -64,9 +64,9 @@ GTD_SERVER_URL=http://server.example:4040 gtd add "capture this"
 
 ## Make and Docker
 
-The project has one `gtd` binary. The Makefile provides `build`, `run`, `image`,
-and `deploy`; pass the execution mode through `ARGS`. Run `make` or `make help`
-to see all commands.
+The project has one `gtd` binary. The Makefile provides `build`, `unit`, `lint`,
+`run`, `image`, and `deploy`; pass the execution mode through `ARGS`. Run `make`
+or `make help` to see all commands.
 
 Build and run locally:
 
