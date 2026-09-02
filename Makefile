@@ -23,13 +23,15 @@ ifeq ($(strip $(RUST_VERSION)),)
 $(error failed to read Rust channel from rust-toolchain.toml)
 endif
 
-.PHONY: help build run image deploy
+.PHONY: help build unit lint run image deploy
 
 help:
 	@echo "GTD commands"
 	@echo "Rust toolchain: $(RUST_VERSION) (from rust-toolchain.toml)"
 	@echo
 	@echo "  make build                       Build the local static gtd binary"
+	@echo "  make unit                        Run the unit test suite"
+	@echo "  make lint                        Check formatting and run Clippy"
 	@echo "  make run                         Build and run the local static server"
 	@echo "  make run ARGS='add task'         Run any local gtd command"
 	@echo "  make image                       Build IMAGE=$(IMAGE)"
@@ -39,6 +41,13 @@ help:
 
 build:
 	$(STATIC_CARGO_ENV) $(CARGO) build --locked --target $(RUST_TARGET) $(BUILD_FLAGS)
+
+unit:
+	$(CARGO) test --locked --all-targets --all-features
+
+lint:
+	$(CARGO) fmt --all -- --check
+	$(CARGO) clippy --locked --all-targets --all-features -- -D warnings
 
 run:
 	$(STATIC_CARGO_ENV) $(CARGO) run --locked --target $(RUST_TARGET) -- --server-url $(SERVER_URL) $(ARGS)
