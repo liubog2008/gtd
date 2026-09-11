@@ -179,6 +179,16 @@ pub trait TaskRepository: Send + Sync {
         start_revision: i64,
         limit: i64,
     ) -> Result<Vec<TaskWatchEvent>, StoreError>;
+    async fn events_between(
+        &self,
+        start_revision: i64,
+        end_revision: i64,
+        limit: i64,
+    ) -> Result<Vec<TaskWatchEvent>, StoreError> {
+        let mut events = self.events_from(start_revision, limit).await?;
+        events.retain(|event| event.task.metadata.revision <= end_revision);
+        Ok(events)
+    }
     async fn compact(&self, target_revision: i64) -> Result<RevisionState, StoreError>;
 }
 
@@ -378,12 +388,36 @@ impl TaskRepository for SqliteRepository {
         start_revision: i64,
         limit: i64,
     ) -> Result<Vec<TaskWatchEvent>, StoreError> {
+        let current_revision = self.revision_state().await?.current_revision;
+        self.events_between(start_revision, current_revision, limit)
+            .await
+    }
+
+    async fn events_between(
+        &self,
+        start_revision: i64,
+        end_revision: i64,
+        limit: i64,
+    ) -> Result<Vec<TaskWatchEvent>, StoreError> {
         self.run(move |connection| {
             connection.transaction::<Vec<TaskWatchEvent>, StoreError, _>(|connection| {
                 let state = load_revision_state(connection)?;
                 validate_start_revision(start_revision, state)?;
+                if end_revision > state.current_revision {
+                    return Err(StoreError::FutureRevision {
+                        requested: end_revision,
+                        current_revision: state.current_revision,
+                    });
+                }
+                if end_revision < start_revision {
+                    return Ok(Vec::new());
+                }
                 let rows = task_events::table
-                    .filter(task_events::revision.ge(start_revision))
+                    .filter(
+                        task_events::revision
+                            .ge(start_revision)
+                            .and(task_events::revision.le(end_revision)),
+                    )
                     .order(task_events::revision.asc())
                     .limit(limit.clamp(1, 1_000))
                     .select(TaskEventRow::as_select())
@@ -1269,6 +1303,24 @@ mod tests {
         assert_eq!(prev_task.metadata.updated_at, first.event.updated_at);
         assert_eq!(prev_task.description, "First");
         assert_eq!(prev_task.state, TaskState::Pending);
+    }
+
+    #[tokio::test]
+    async fn watch_reads_are_bounded_by_the_end_revision() {
+        let (_directory, repository) = repository();
+        repository.create("First".to_owned()).await.unwrap();
+        repository.create("Second".to_owned()).await.unwrap();
+        repository.create("Third".to_owned()).await.unwrap();
+
+        let events = repository.events_between(1, 2, 100).await.unwrap();
+
+        assert_eq!(
+            events
+                .iter()
+                .map(|event| event.task.metadata.revision)
+                .collect::<Vec<_>>(),
+            vec![1, 2]
+        );
     }
 
     #[tokio::test]

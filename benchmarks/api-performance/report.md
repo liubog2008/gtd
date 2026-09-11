@@ -14,12 +14,12 @@
 Every Watch recovery test passed, with no observed event loss:
 
 - The server crashed after the watcher acknowledged only revision 1. After restart,
-  `Last-Event-ID: 1` replayed revisions 2, 3, and 4 in order, followed by newly
+  `revision=2` replayed revisions 2, 3, and 4 in order, followed by newly
   committed revision 5.
 - A Watch client exited after reading revisions 1 and 2. A replacement client
   started at persisted revision 3 and received revisions 3 through 6 in order.
 - Revisions 2 through 4 were committed during a temporary TCP interruption. After
-  reconnecting with `Last-Event-ID: 1`, the client received all three.
+  reconnecting with `revision=2`, the client received all three.
 - All three scenarios were strictly increasing by revision, without gaps or
   duplicates.
 
@@ -45,7 +45,7 @@ connections and parses SSE directly rather than bypassing the network with Axum
 
 | Scenario | Operation | Expected result and outcome |
 | --- | --- | --- |
-| Server restart | Stop the server after R1; start a new server on the same SQLite database; send `Last-Event-ID: 1` | Receive R2-R4 and then new R5; passed |
+| Server restart | Stop the server after R1; start a new server on the same SQLite database; reconnect with `revision=2` | Receive R2-R4 and then new R5; passed |
 | Client restart | First client persists R2 and exits; second starts at `revision=3` | Receive R3-R6; passed |
 | Temporary network interruption | Drop the TCP socket after R1; commit R2-R4 while disconnected | Receive R2-R4 after reconnect; passed |
 | Compacted revision | Compact through R3, then start Watch at `revision=3` | HTTP `410 Gone`; passed |
