@@ -69,20 +69,13 @@ struct WatchConnection {
 }
 
 impl WatchConnection {
-    async fn connect(
-        address: SocketAddr,
-        revision: Option<i64>,
-        last_event_id: Option<i64>,
-    ) -> Self {
+    async fn connect(address: SocketAddr, revision: Option<i64>) -> Self {
         let mut stream = TcpStream::connect(address).await.unwrap();
         let query = revision
             .map(|revision| format!("&revision={revision}"))
             .unwrap_or_default();
-        let last_event_id = last_event_id
-            .map(|revision| format!("Last-Event-ID: {revision}\r\n"))
-            .unwrap_or_default();
         let request = format!(
-            "GET /api/v1/tasks?watch=true{query} HTTP/1.1\r\nHost: {address}\r\nAccept: text/event-stream\r\n{last_event_id}\r\n"
+            "GET /api/v1/tasks?watch=true{query} HTTP/1.1\r\nHost: {address}\r\nAccept: text/event-stream\r\n\r\n"
         );
         stream.write_all(request.as_bytes()).await.unwrap();
 
@@ -179,13 +172,13 @@ async fn watch_replays_unacknowledged_events_after_server_restart() {
         .await;
     }
 
-    let mut watch = WatchConnection::connect(server.address, Some(1), None).await;
+    let mut watch = WatchConnection::connect(server.address, Some(1)).await;
     assert_eq!(watch.next_revision().await, 1);
     server.crash().await;
     drop(watch);
 
     let server = RunningServer::start(&database).await;
-    let mut resumed = WatchConnection::connect(server.address, None, Some(1)).await;
+    let mut resumed = WatchConnection::connect(server.address, Some(2)).await;
     let mut revisions = vec![1];
     for _ in 0..3 {
         revisions.push(resumed.next_revision().await);
@@ -209,12 +202,12 @@ async fn watch_client_restart_resumes_from_its_persisted_revision() {
         create_task(&client, &server.base_url(), &format!("event {number}")).await;
     }
 
-    let mut first_client = WatchConnection::connect(server.address, Some(1), None).await;
+    let mut first_client = WatchConnection::connect(server.address, Some(1)).await;
     assert_eq!(first_client.next_revision().await, 1);
     assert_eq!(first_client.next_revision().await, 2);
     drop(first_client);
 
-    let mut restarted_client = WatchConnection::connect(server.address, Some(3), None).await;
+    let mut restarted_client = WatchConnection::connect(server.address, Some(3)).await;
     let mut resumed = Vec::new();
     for _ in 0..4 {
         resumed.push(restarted_client.next_revision().await);
@@ -232,7 +225,7 @@ async fn watch_recovers_events_committed_during_a_network_interruption() {
     let client = reqwest::Client::new();
     let server = RunningServer::start(&database).await;
 
-    let mut watch = WatchConnection::connect(server.address, Some(1), None).await;
+    let mut watch = WatchConnection::connect(server.address, Some(1)).await;
     create_task(&client, &server.base_url(), "before disconnect").await;
     assert_eq!(watch.next_revision().await, 1);
     drop(watch); // Simulate a broken TCP connection without notifying the Server.
@@ -246,7 +239,7 @@ async fn watch_recovers_events_committed_during_a_network_interruption() {
         .await;
     }
 
-    let mut resumed = WatchConnection::connect(server.address, None, Some(1)).await;
+    let mut resumed = WatchConnection::connect(server.address, Some(2)).await;
     let mut revisions = Vec::new();
     for _ in 0..3 {
         revisions.push(resumed.next_revision().await);
@@ -293,7 +286,7 @@ async fn compact_rejects_old_watchers_and_preserves_watchers_after_the_watermark
         "automatic periodic compaction must remain disabled without a retention policy"
     );
 
-    let mut active = WatchConnection::connect(server.address, Some(3), None).await;
+    let mut active = WatchConnection::connect(server.address, Some(3)).await;
     assert_eq!(active.next_revision().await, 3);
 
     let state = server.repository.compact(3).await.unwrap();
@@ -326,12 +319,12 @@ async fn compact_rejects_old_watchers_and_preserves_watchers_after_the_watermark
     assert_eq!(active.next_revision().await, 5);
     drop(active);
 
-    let mut retained = WatchConnection::connect(server.address, Some(4), None).await;
+    let mut retained = WatchConnection::connect(server.address, Some(4)).await;
     assert_eq!(retained.next_revision().await, 4);
     assert_eq!(retained.next_revision().await, 5);
     drop(retained);
 
-    let mut live = WatchConnection::connect(server.address, Some(6), None).await;
+    let mut live = WatchConnection::connect(server.address, Some(6)).await;
     server.repository.compact(5).await.unwrap();
     create_task(&client, &server.base_url(), "after compact").await;
     assert_eq!(live.next_revision().await, 6);

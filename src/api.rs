@@ -9,7 +9,7 @@ use axum::{
     routing::get,
 };
 use serde::{Deserialize, Serialize};
-use tokio::sync::broadcast;
+use tokio::sync::watch;
 use uuid::Uuid;
 
 use crate::{
@@ -21,16 +21,15 @@ use crate::{
 };
 
 const WATCH_BATCH_SIZE: i64 = 256;
-const WATCH_POLL_INTERVAL: Duration = Duration::from_secs(1);
 
 #[derive(Clone)]
 pub struct AppState {
     pub repository: DynRepository,
-    pub revisions: broadcast::Sender<i64>,
+    pub revisions: watch::Sender<i64>,
 }
 
 pub fn router(repository: DynRepository) -> (Router, AppState) {
-    let (revisions, _) = broadcast::channel(128);
+    let (revisions, _) = watch::channel(0);
     let state = AppState {
         repository,
         revisions,
@@ -71,16 +70,13 @@ async fn get_task(
 async fn tasks(
     State(state): State<AppState>,
     Query(query): Query<TaskQuery>,
-    headers: HeaderMap,
 ) -> Result<Response, ApiError> {
     let watch = query.watch;
     let revision = query.revision;
     let filter = query.try_into()?;
 
     if watch {
-        return Ok(task_watch(state, revision, headers, filter)
-            .await?
-            .into_response());
+        return Ok(task_watch(state, revision, filter).await?.into_response());
     }
     if revision.is_some() {
         return Err(StoreError::Validation("revision requires watch=true".to_owned()).into());
@@ -111,15 +107,14 @@ async fn update_task(
 async fn task_watch(
     state: AppState,
     revision: Option<i64>,
-    headers: HeaderMap,
     filter: TaskFilter,
 ) -> Result<Sse<impl futures_core::Stream<Item = Result<Event, Infallible>>>, ApiError> {
-    // Subscribe before reading the database watermark. Polling is the durable fallback, while
-    // this ordering avoids an unnecessary one-second delay for a concurrent commit.
+    // Subscribe before reading the database watermark so a commit concurrent with setup cannot
+    // be missed. The watch channel retains the latest committed revision, and the database keeps
+    // the events themselves.
     let mut receiver = state.revisions.subscribe();
     let revision_state = state.repository.revision_state().await?;
-    let mut next_revision =
-        resolve_watch_revision(revision, &headers, revision_state.current_revision)?;
+    let next_revision = resolve_watch_revision(revision, revision_state.current_revision)?;
     validate_watch_revision(
         next_revision,
         revision_state.current_revision,
@@ -128,59 +123,65 @@ async fn task_watch(
     let repository = state.repository.clone();
 
     let events = stream! {
+        let mut current_revision = next_revision - 1;
+        let mut target_revision = revision_state.current_revision;
+
         loop {
-            match repository.events_from(next_revision, WATCH_BATCH_SIZE).await {
-                Ok(batch) if !batch.is_empty() => {
-                    for task_event in batch {
-                        let revision = task_event.task.metadata.revision;
-                        next_revision = revision + 1;
-                        if !task_event.matches_filter(&filter) {
-                            continue;
+            while current_revision < target_revision {
+                let start_revision = current_revision + 1;
+                match repository
+                    .events_between(start_revision, target_revision, WATCH_BATCH_SIZE)
+                    .await
+                {
+                    Ok(batch) if !batch.is_empty() => {
+                        for task_event in batch {
+                            let revision = task_event.task.metadata.revision;
+                            current_revision = revision;
+                            if !task_event.matches_filter(&filter) {
+                                continue;
+                            }
+                            if let Ok(event) = Event::default()
+                                .id(revision.to_string())
+                                .event(task_event.event_type.as_str())
+                                .json_data(&task_event)
+                            {
+                                yield Ok(event);
+                            }
                         }
-                        if let Ok(event) = Event::default()
-                            .id(revision.to_string())
-                            .event(task_event.event_type.as_str())
-                            .json_data(&task_event)
-                        {
+                    }
+                    Ok(_) => {
+                        yield Ok(Event::default().event("error").data(format!(
+                            "database returned no events for revision range {start_revision}..={target_revision}"
+                        )));
+                        return;
+                    }
+                    Err(StoreError::Compacted { compacted_revision, .. }) => {
+                        let current_revision = repository
+                            .revision_state()
+                            .await
+                            .map(|state| state.current_revision)
+                            .unwrap_or(compacted_revision);
+                        if let Ok(event) = Event::default().event("compacted").json_data(
+                            CompactedEvent {
+                                compacted_revision,
+                                current_revision,
+                            },
+                        ) {
                             yield Ok(event);
                         }
+                        return;
                     }
-                    continue;
-                }
-                Ok(_) => {}
-                Err(StoreError::Compacted { compacted_revision, .. }) => {
-                    let current_revision = repository
-                        .revision_state()
-                        .await
-                        .map(|state| state.current_revision)
-                        .unwrap_or(compacted_revision);
-                    if let Ok(event) = Event::default().event("compacted").json_data(
-                        CompactedEvent {
-                            compacted_revision,
-                            current_revision,
-                        },
-                    ) {
-                        yield Ok(event);
+                    Err(error) => {
+                        yield Ok(Event::default().event("error").data(error.to_string()));
+                        return;
                     }
-                    break;
-                }
-                Err(error) => {
-                    yield Ok(Event::default().event("error").data(error.to_string()));
-                    break;
                 }
             }
 
-            tokio::select! {
-                _ = tokio::time::sleep(WATCH_POLL_INTERVAL) => {}
-                notification = receiver.recv() => {
-                    match notification {
-                        Ok(_) | Err(broadcast::error::RecvError::Lagged(_)) => {}
-                        Err(broadcast::error::RecvError::Closed) => {
-                            tokio::time::sleep(WATCH_POLL_INTERVAL).await;
-                        }
-                    }
-                }
+            if receiver.changed().await.is_err() {
+                break;
             }
+            target_revision = target_revision.max(*receiver.borrow_and_update());
         }
     };
 
@@ -192,7 +193,14 @@ async fn task_watch(
 }
 
 fn notify(state: &AppState, revision: i64) {
-    let _ = state.revisions.send(revision);
+    let _ = state.revisions.send_if_modified(|current_revision| {
+        if revision > *current_revision {
+            *current_revision = revision;
+            true
+        } else {
+            false
+        }
+    });
 }
 
 fn revision_headers(revision: i64) -> Result<HeaderMap, ApiError> {
@@ -203,24 +211,9 @@ fn revision_headers(revision: i64) -> Result<HeaderMap, ApiError> {
     Ok(headers)
 }
 
-fn resolve_watch_revision(
-    revision: Option<i64>,
-    headers: &HeaderMap,
-    current_revision: i64,
-) -> Result<i64, ApiError> {
+fn resolve_watch_revision(revision: Option<i64>, current_revision: i64) -> Result<i64, ApiError> {
     if let Some(revision) = revision {
         return Ok(revision);
-    }
-    if let Some(last_event_id) = headers.get("last-event-id") {
-        let value = last_event_id
-            .to_str()
-            .map_err(|_| StoreError::Validation("Last-Event-ID must be an integer".to_owned()))?;
-        let revision = value
-            .parse::<i64>()
-            .map_err(|_| StoreError::Validation("Last-Event-ID must be an integer".to_owned()))?;
-        return revision
-            .checked_add(1)
-            .ok_or_else(|| StoreError::Validation("Last-Event-ID is too large".to_owned()).into());
     }
     current_revision
         .checked_add(1)
@@ -498,10 +491,9 @@ mod tests {
     }
 
     #[test]
-    fn watch_revision_prefers_query_over_last_event_id() {
-        let mut headers = HeaderMap::new();
-        headers.insert("last-event-id", HeaderValue::from_static("4"));
-        assert_eq!(resolve_watch_revision(Some(7), &headers, 9).unwrap(), 7);
+    fn watch_without_revision_starts_after_the_current_revision() {
+        assert_eq!(resolve_watch_revision(None, 9).unwrap(), 10);
+        assert_eq!(resolve_watch_revision(Some(7), 9).unwrap(), 7);
     }
 
     #[tokio::test]
@@ -688,5 +680,69 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::GONE);
+    }
+
+    #[tokio::test]
+    async fn watch_fetches_only_through_the_notified_revision_without_polling() {
+        let directory = tempfile::tempdir().unwrap();
+        let database = directory.path().join("notified-watch.db");
+        let repository = Arc::new(SqliteRepository::new(database.to_str().unwrap()).unwrap());
+        let (app, state) = router(repository.clone());
+
+        let response = app
+            .oneshot(
+                Request::get("/api/v1/tasks?watch=true&revision=1")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let mut body = response.into_body();
+
+        for number in 1..=3 {
+            repository
+                .create(format!("notified event {number}"))
+                .await
+                .unwrap();
+        }
+
+        notify(&state, 2);
+        for expected in [1, 2] {
+            let frame = tokio::time::timeout(Duration::from_secs(2), body.frame())
+                .await
+                .unwrap()
+                .unwrap()
+                .unwrap();
+            let payload = String::from_utf8(frame.into_data().unwrap().to_vec()).unwrap();
+            assert!(payload.contains(&format!("id: {expected}")));
+        }
+
+        assert!(
+            tokio::time::timeout(Duration::from_millis(1_200), body.frame())
+                .await
+                .is_err(),
+            "revision 3 must wait for its in-process notification"
+        );
+
+        notify(&state, 3);
+        let frame = tokio::time::timeout(Duration::from_secs(2), body.frame())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        let payload = String::from_utf8(frame.into_data().unwrap().to_vec()).unwrap();
+        assert!(payload.contains("id: 3"));
+    }
+
+    #[test]
+    fn revision_notifications_never_move_the_watermark_backward() {
+        let repository = Arc::new(SqliteRepository::new(":memory:").unwrap());
+        let (_, state) = router(repository);
+
+        notify(&state, 2);
+        notify(&state, 1);
+
+        assert_eq!(*state.revisions.borrow(), 2);
     }
 }

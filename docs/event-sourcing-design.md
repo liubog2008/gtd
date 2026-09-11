@@ -659,16 +659,13 @@ tests enforce equality across adjacent states.
 
 ```http
 GET /api/v1/tasks?watch=true&revision=123
-Last-Event-ID: 122
 ```
 
 Rules:
 
 - `watch=true` changes `GET /api/v1/tasks` from a regular List to an SSE watch.
 - `revision` is inclusive.
-- The `revision` query parameter takes precedence over `Last-Event-ID`.
-- `Last-Event-ID: R` resumes at `R + 1`.
-- If neither value is present, read current revision R and start at `R + 1`.
+- If `revision` is absent, read current revision R and start at `R + 1`.
 - `revision <= scheduled_revision` returns `410 Gone`.
 - `revision > current_revision + 1` returns `400 Bad Request`.
 - Watch supports the same Task `list`, `state`, and AND-combined `labels` filters as

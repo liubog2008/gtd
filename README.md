@@ -317,9 +317,10 @@ curl -N 'http://127.0.0.1:4040/api/v1/tasks?watch=true&revision=42'
 ```
 
 `GET /api/v1/tasks`, `GET /api/v1/tasks/{id}`, and POST/PUT responses all include
-`X-Revision`. Watch `revision` is inclusive and `Last-Event-ID` remains available
-for resuming a stream; a query `revision` takes precedence. Watch replays from the
-database, while in-memory notifications only reduce polling latency.
+`X-Revision`. Watch `revision` is inclusive and is the only resume cursor. Watch
+replays from the database through the connection's initial revision, then uses
+in-memory revision notifications to fetch newly committed revision ranges without
+polling.
 
 Watch accepts the same Task `list`, `state`, and AND-combined `labels` filters as
 List. An update is emitted when either `task` or `prev_task` matches, so a client
